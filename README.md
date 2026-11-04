@@ -15,7 +15,15 @@ mvn clean package
 java -cp target/classes com.nhom5.netmonitor.App
 ```
 
-Hiện tại ứng dụng chỉ in thông báo xác nhận khung dự án chạy được; các module chức năng thuộc tuần 2–4.
+Chạy module giám sát kết nối:
+
+```powershell
+java -jar target/netmonitor-0.1.0-SNAPSHOT.jar
+java -jar target/netmonitor-0.1.0-SNAPSHOT.jar 127.0.0.1
+java -jar target/netmonitor-0.1.0-SNAPSHOT.jar 127.0.0.1 8080
+```
+
+Lệnh đầu liệt kê mọi kết nối TCP/UDP. Có thể truyền IP, port, hoặc cả hai; nếu truyền cả hai thì một dòng phải khớp IP **và** port ở đầu cục bộ hoặc đầu từ xa. Cột PID có thể là `-1` nếu hệ điều hành không trả được PID. UDP hiển thị trạng thái `N/A` vì UDP không có trạng thái kết nối TCP.
 
 ## Phạm vi và cách làm việc
 
