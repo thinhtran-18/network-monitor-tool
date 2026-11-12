@@ -107,6 +107,7 @@ public final class DashboardFrame extends JFrame {
     }
 
     private static final class Header extends JPanel {
+        private final Timer timer;
         private final javax.swing.JLabel clock = label("Cập nhật: 14:32:08", 1012, 0, 140, 64, 12, MUTED, false);
         Header() {
             setLayout(null); setBounds(240, 0, 1200, 64); setBackground(SIDEBAR);
@@ -114,14 +115,15 @@ public final class DashboardFrame extends JFrame {
             add(label("Dashboard", 24, 6, 280, 29, 22, WHITE, true));
             add(label("Network Monitor Tool", 24, 34, 280, 22, 13, MUTED, false));
             JPanel status = new JPanel(null); status.setBounds(860, 18, 128, 30); status.setBackground(new Color(18, 54, 52));
-            status.add(label("●  Đang giám sát", 10, 0, 112, 30, 12, new Color(34, 197, 94), true)); add(status);
+            status.add(label("●  Dữ liệu mẫu", 10, 0, 112, 30, 12, new Color(34, 197, 94), true)); add(status);
             add(clock);
-            Timer timer = new Timer(1000, e -> clock.setText("Cập nhật: " + LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm:ss"))));
-            timer.start();
+            timer = new Timer(1000, e -> clock.setText("Cập nhật: " + LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm:ss"))));
             JPanel close = new JPanel(null); close.setBounds(1160, 0, 28, 64); close.setOpaque(false);
             close.addMouseListener(new MouseAdapter() { @Override public void mouseClicked(MouseEvent e) { System.exit(0); } });
             close.add(label("×", 5, 15, 25, 30, 20, MUTED, false)); add(close);
         }
+        @Override public void addNotify() { super.addNotify(); timer.start(); }
+        @Override public void removeNotify() { timer.stop(); super.removeNotify(); }
     }
 
     private static class Card extends JPanel {

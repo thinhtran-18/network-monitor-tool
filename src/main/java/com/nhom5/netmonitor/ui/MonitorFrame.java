@@ -97,6 +97,7 @@ abstract class MonitorFrame extends JFrame {
     }
 
     private static final class Header extends JPanel {
+        private final Timer timer;
         Header(String title, int frameWidth) {
             int headerWidth = frameWidth - 240;
             setLayout(null); setBounds(240, 0, headerWidth, 64); setBackground(UiTheme.SIDEBAR);
@@ -104,15 +105,17 @@ abstract class MonitorFrame extends JFrame {
             add(UiTheme.label(title, 24, 5, 430, 30, 22, UiTheme.WHITE, true));
             add(UiTheme.label("Network Monitor Tool", 24, 34, 300, 20, 13, UiTheme.MUTED, false));
             JPanel badge = new JPanel(null); badge.setBounds(headerWidth - 340, 17, 128, 30); badge.setBackground(new Color(18, 54, 52));
-            badge.add(UiTheme.label("●  Đang giám sát", 11, 0, 112, 30, 12, UiTheme.GREEN, true)); add(badge);
+            badge.add(UiTheme.label("●  Dữ liệu mẫu", 11, 0, 112, 30, 12, UiTheme.GREEN, true)); add(badge);
             JLabel clock = UiTheme.label("Cập nhật: " + time(), headerWidth - 188, 0, 140, 64, 12, UiTheme.MUTED, false);
             add(clock);
-            Timer timer = new Timer(1000, e -> clock.setText("Cập nhật: " + time())); timer.start();
+            timer = new Timer(1000, e -> clock.setText("Cập nhật: " + time()));
             JButton close = new JButton("×"); close.setBounds(headerWidth - 40, 13, 28, 28);
             close.setForeground(UiTheme.MUTED); close.setFont(new Font("Segoe UI", Font.PLAIN, 20));
             close.setBorderPainted(false); close.setContentAreaFilled(false); close.setFocusPainted(false);
             close.addActionListener(e -> System.exit(0)); add(close);
         }
+        @Override public void addNotify() { super.addNotify(); timer.start(); }
+        @Override public void removeNotify() { timer.stop(); super.removeNotify(); }
         private static String time() { return LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm:ss")); }
     }
 }

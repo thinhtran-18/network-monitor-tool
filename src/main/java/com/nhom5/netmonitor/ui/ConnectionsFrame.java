@@ -25,8 +25,8 @@ public final class ConnectionsFrame extends MonitorFrame {
     private final JTextField search = new JTextField();
     private String protocolFilter = "All";
     private String stateFilter = "Tất cả trạng thái";
-    private int totalConnectionCount = 248;
-    private final JLabel countLabel = UiTheme.label("Hiển thị 15 / 248 kết nối", 0, 0, 170, 34, 12, UiTheme.MUTED, false);
+    private int totalConnectionCount = sampleRows().size();
+    private final JLabel countLabel = UiTheme.label("", 0, 0, 170, 34, 12, UiTheme.MUTED, false);
 
     public ConnectionsFrame() {
         super("Connections", 1, 1440, 900);
@@ -91,10 +91,10 @@ public final class ConnectionsFrame extends MonitorFrame {
         states.addActionListener(e -> { stateFilter = (String) states.getSelectedItem(); applyFilters(); });
         bar.add(states);
         countLabel.setBounds(830, 18, 168, 36); bar.add(countLabel);
-        JButton refresh = button("Làm mới", 1012, 18, 122, 36, false);
+        JButton refresh = button("Xóa bộ lọc", 1012, 18, 122, 36, false);
         refresh.addActionListener(e -> {
             search.setText(""); states.setSelectedIndex(0); protocolFilter = "All";
-            totalConnectionCount = 248; tableModel.setRows(sampleRows()); applyFilters();
+            applyFilters(); updateProtocolButtons(bar);
         });
         bar.add(refresh);
         addPageComponent(bar);
