@@ -36,7 +36,6 @@ public final class BandwidthMonitor {
     private final long intervalMillis;
     private final List<BandwidthListener> listeners = new CopyOnWriteArrayList<>();
     private final Set<String> selected = new CopyOnWriteArraySet<>();
-    private final Map<String, Baseline> baselines = new HashMap<>(); // chỉ thread lấy mẫu dùng
     private volatile Thread worker;
 
     public BandwidthMonitor() {
@@ -84,14 +83,15 @@ public final class BandwidthMonitor {
         t.start();
     }
 
-    /** Dừng thread và chờ kết thúc. */
-    public synchronized void stop() {
-        Thread t = worker;
-        if (t == null) {
-            return;
+    /** Yêu cầu dừng và chờ tối đa ba chu kỳ; không khởi động worker mới khi worker cũ còn chạy. */
+    public void stop() {
+        Thread t;
+        synchronized (this) {
+            t = worker;
+            if (t == null) return;
+            t.interrupt();
         }
-        worker = null;
-        t.interrupt();
+        if (t == Thread.currentThread()) return;
         try {
             t.join(intervalMillis * 3);
         } catch (InterruptedException e) {
@@ -101,26 +101,34 @@ public final class BandwidthMonitor {
 
     private void runLoop() {
         Thread self = Thread.currentThread();
-        while (worker == self && !self.isInterrupted()) {
-            try {
-                sampleOnce();
-                Thread.sleep(intervalMillis);
-            } catch (InterruptedException e) {
-                return;
-            } catch (RuntimeException e) {
-                for (BandwidthListener l : listeners) {
-                    l.onBandwidthError(null, e);
-                }
+        // Mỗi lần chạy có mốc riêng, nên không tính cả thời gian monitor đã dừng.
+        Map<String, Baseline> baselines = new HashMap<>();
+        try {
+            while (!self.isInterrupted()) {
                 try {
+                    sampleOnce(baselines);
                     Thread.sleep(intervalMillis);
-                } catch (InterruptedException ie) {
+                } catch (InterruptedException e) {
                     return;
+                } catch (RuntimeException e) {
+                    for (BandwidthListener l : listeners) {
+                        l.onBandwidthError(null, e);
+                    }
+                    try {
+                        Thread.sleep(intervalMillis);
+                    } catch (InterruptedException ie) {
+                        return;
+                    }
                 }
+            }
+        } finally {
+            synchronized (this) {
+                if (worker == self) worker = null;
             }
         }
     }
 
-    private void sampleOnce() {
+    private void sampleOnce(Map<String, Baseline> baselines) {
         List<NetworkIF> all = hal.getNetworkIFs();
         Set<String> present = new java.util.HashSet<>();
         for (NetworkIF nif : all) {

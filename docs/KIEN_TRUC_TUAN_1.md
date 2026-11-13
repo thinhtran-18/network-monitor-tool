@@ -11,3 +11,10 @@
 **Hợp đồng tích hợp.** Dữ liệu kết nối có IP/port cục bộ và từ xa, giao thức TCP/UDP, trạng thái, PID; PID hoặc địa chỉ không đọc được phải có giá trị vắng mặt rõ ràng. Dữ liệu băng thông có mã card, thời điểm, tổng byte gửi/nhận, byte/giây và tốc độ danh định của card (nếu có). Giao thức Agent/Server dùng UTF-8, một đối tượng JSON trên một dòng, có `type`, `version`, `agentId`, `timestamp` và `payload`; dòng lỗi hoặc quá dài được từ chối mà không làm sập Server. Chi tiết trường sẽ chốt cùng Huyền trước khi code tuần 2.
 
 **Kiểm chứng.** Chạy từng module độc lập trước khi tích hợp. So sánh byte/giây với Task Manager/Resource Monitor trong cùng khoảng lấy mẫu; thử ngắt card, client rớt mạng và nhiều client. Khi demo, che tên máy và IP cá nhân trong ảnh. Mã test và bug theo `TC-xx`, `BUG-xx`.
+
+## Bàn giao giao diện tuần 1–2 — Nguyễn Duy Tiến
+
+- **Tuần 1:** Figma là wireframe cho Dashboard, Connections, Statistics và Socket Test. UI dùng Swing có sẵn trong JDK; JFreeChart 1.5.6 là thư viện biểu đồ đã chọn và khai báo trong `pom.xml`. OSHI 7.6.1 cung cấp dữ liệu giám sát, Gson 2.15.0 phục vụ bản tin JSON của module Agent–Server.
+- **Tuần 2:** package `ui` có khung các màn theo frame Figma; màn Connections trình bày bảng `JTable` bằng `ConnectionTableModel` với dữ liệu mẫu. Model nhận `List<ConnectionInfo>` từ package `core` để không phụ thuộc vào lớp OSHI.
+- `ConnectionTableModel.setRows(...)` và `ConnectionsFrame.setConnections(...)` có thể được gọi từ thread nền; việc thay snapshot và phát sự kiện cho bảng được chuyển lên Swing Event Dispatch Thread. UI không tự quét OSHI hoặc mở Socket.
+- Chart trên Dashboard/Statistics hiện là phần minh họa giao diện. Việc nối dữ liệu monitor thật, dùng JFreeChart cho biểu đồ thời gian thực và tích hợp Socket thuộc giai đoạn sau.
