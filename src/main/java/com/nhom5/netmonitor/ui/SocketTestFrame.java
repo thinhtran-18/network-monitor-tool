@@ -1,5 +1,6 @@
 package com.nhom5.netmonitor.ui;
 
+import com.nhom5.netmonitor.network.SocketService;
 import java.awt.Color;
 import java.awt.Font;
 import javax.swing.BorderFactory;
@@ -11,16 +12,23 @@ import javax.swing.JRadioButton;
 import javax.swing.JScrollPane;
 import javax.swing.JTable;
 import javax.swing.JTextField;
-import javax.swing.SwingUtilities;
+import javax.swing.JOptionPane;
 import javax.swing.table.DefaultTableModel;
 
-/** Socket test page layout; connection fields and log are demonstration UI only. */
+/** Original Socket Test controls backed by the session TCP service. */
 public final class SocketTestFrame extends MonitorFrame {
     private final JLabel statusText = UiTheme.label("Chưa kết nối", 20, 46, 220, 30, 19, UiTheme.MUTED, true);
-    private final JLabel sidebarStatus = UiTheme.label("●  Chưa kết nối", 218, 350, 115, 28, 11, UiTheme.MUTED, false);
+    private final JLabel sidebarStatus = UiTheme.label("●  Chưa kết nối", 20, 362, 320, 28, 11, UiTheme.MUTED, false);
 
-    public SocketTestFrame() {
-        super("Socket Test", 3, 1512, 979);
+    private final JLabel count = UiTheme.label("0 bản ghi", 250, 18, 100, 28, 12, UiTheme.MUTED, false);
+    private final DefaultTableModel model = new DefaultTableModel(
+            new String[]{"Thời gian", "Loại", "Nội dung", "Dung lượng", "Tốc độ card"}, 0) {
+        @Override public boolean isCellEditable(int row, int column) { return false; }
+    };
+
+    SocketTestFrame(MonitorSession session) {
+        super(session, "Socket Test", 3, 1512, 979);
+        showStatus("TCP · Chờ kết nối", 0);
         addConfiguration();
         addSummaryCards();
         addLogPanel();
@@ -42,23 +50,42 @@ public final class SocketTestFrame extends MonitorFrame {
         client.addActionListener(e -> { client.setBackground(UiTheme.BLUE); client.setForeground(Color.WHITE); server.setBackground(UiTheme.INPUT); server.setForeground(UiTheme.MUTED); });
         config.add(mode);
         config.add(UiTheme.label("Địa chỉ IP", 20, 126, 200, 22, 12, UiTheme.MUTED, false));
-        JTextField ip = field("192.168.1.30"); ip.setBounds(20, 153, 320, 36); config.add(ip);
+        JTextField ip = field("127.0.0.1"); ip.setBounds(20, 153, 320, 36); config.add(ip);
         config.add(UiTheme.label("Port", 20, 194, 200, 22, 12, UiTheme.MUTED, false));
-        JTextField port = field("5000"); port.setBounds(20, 221, 320, 36); config.add(port);
+        JTextField port = field("8888"); port.setBounds(20, 221, 320, 36); config.add(port);
         JButton connect = actionButton("Connect", 20, 285, 150, 36, UiTheme.BLUE, Color.WHITE);
         JButton disconnect = actionButton("Disconnect", 186, 285, 154, 36, UiTheme.CARD, new Color(151, 66, 76));
-        connect.addActionListener(e -> { statusText.setText("Đã kết nối (demo)"); statusText.setForeground(UiTheme.GREEN); sidebarStatus.setText("●  Đang kết nối"); sidebarStatus.setForeground(UiTheme.GREEN); });
-        disconnect.addActionListener(e -> { statusText.setText("Chưa kết nối"); statusText.setForeground(UiTheme.MUTED); sidebarStatus.setText("●  Chưa kết nối"); sidebarStatus.setForeground(UiTheme.MUTED); });
+        server.addActionListener(e -> ip.setEnabled(false));
+        client.addActionListener(e -> ip.setEnabled(true));
+        connect.addActionListener(e -> {
+            String host = ip.getText().strip();
+            boolean listening = server.isSelected();
+            int number;
+            try {
+                number = Integer.parseInt(port.getText().strip());
+                if (number < 1 || number > 65535 || (!listening && host.isEmpty())) {
+                    throw new IllegalArgumentException();
+                }
+            } catch (IllegalArgumentException invalid) {
+                JOptionPane.showMessageDialog(this, "Nhập địa chỉ máy chủ và port từ 1 đến 65535.");
+                return;
+            }
+            session.runSocketAction(() -> {
+                if (listening) session.socket.startServer(number);
+                else session.socket.connect(host, number);
+            });
+        });
+        disconnect.addActionListener(e -> session.runSocketAction(session.socket::stop));
         config.add(connect); config.add(disconnect);
         config.add(UiTheme.label("Trạng thái", 20, 338, 120, 30, 13, UiTheme.MUTED, false));
-        sidebarStatus.setBounds(218, 350, 115, 28); config.add(sidebarStatus);
+        sidebarStatus.setBounds(20, 362, 320, 28); config.add(sidebarStatus);
         addPageComponent(config);
     }
 
     private void addSummaryCards() {
         addPageComponent(summaryCard(640, "Trạng thái", "Chưa kết nối", "--", 0));
-        addPageComponent(summaryCard(928, "Tốc độ truyền", "--", "Trung bình -- MB/s", 1));
-        addPageComponent(summaryCard(1216, "Độ trễ", "--", "Cao nhất -- ms", 2));
+        addPageComponent(summaryCard(928, "Dữ liệu qua TCP", "Mẫu card mạng", "Xem tốc độ card trong nhật ký", 1));
+        addPageComponent(summaryCard(1216, "Phép đo đường truyền", "--", "Chưa đo tốc độ và độ trễ", 2));
     }
 
     private SurfacePanel summaryCard(int x, String title, String value, String footer, int type) {
@@ -73,12 +100,9 @@ public final class SocketTestFrame extends MonitorFrame {
     private void addLogPanel() {
         SurfacePanel log = new SurfacePanel(640, 216, 848, 739);
         log.add(UiTheme.label("Nhật ký truyền dữ liệu", 20, 18, 230, 28, 16, UiTheme.WHITE, true));
-        log.add(UiTheme.label("0 bản ghi", 250, 18, 100, 28, 12, UiTheme.MUTED, false));
+        log.add(count);
         JButton clear = actionButton("Xóa nhật ký", 660, 18, 164, 36, UiTheme.CARD, UiTheme.MUTED);
         log.add(clear);
-        DefaultTableModel model = new DefaultTableModel(new Object[0][0], new String[]{"Thời gian", "Loại", "Nội dung", "Dung lượng", "Tốc độ"}) {
-            @Override public boolean isCellEditable(int row, int column) { return false; }
-        };
         JTable table = new JTable(model);
         table.setRowHeight(36); table.setFont(new Font("Segoe UI", Font.PLAIN, 12));
         table.setBackground(UiTheme.CARD); table.setForeground(UiTheme.WHITE); table.setGridColor(UiTheme.EDGE);
@@ -87,21 +111,37 @@ public final class SocketTestFrame extends MonitorFrame {
         table.getTableHeader().setFont(new Font("Segoe UI", Font.PLAIN, 12)); table.getTableHeader().setReorderingAllowed(false);
         JScrollPane scroll = new JScrollPane(table); scroll.setBounds(1, 64, 846, 674); scroll.setBorder(BorderFactory.createEmptyBorder());
         scroll.getViewport().setBackground(UiTheme.CARD); scroll.setBackground(UiTheme.CARD); log.add(scroll);
-        JPanel empty = new JPanel(null); empty.setBounds(180, 315, 488, 104); empty.setOpaque(false);
-        JPanel icon = new JPanel() {
-            @Override protected void paintComponent(java.awt.Graphics graphics) {
-                super.paintComponent(graphics);
-                java.awt.Graphics2D g = (java.awt.Graphics2D) graphics.create();
-                g.setColor(UiTheme.MUTED); g.setStroke(new java.awt.BasicStroke(2f));
-                g.drawRoundRect(10, 7, 28, 20, 4, 4); g.drawLine(12, 10, 19, 18); g.drawLine(36, 10, 29, 18);
-                g.drawLine(19, 18, 29, 18); g.dispose();
-            }
-        };
-        icon.setBounds(220, 0, 48, 40); icon.setOpaque(false); empty.add(icon);
-        JLabel message = UiTheme.label("Chưa có dữ liệu truyền. Nhấn Connect để bắt đầu.", 0, 56, 488, 28, 12, UiTheme.MUTED, false);
-        message.setHorizontalAlignment(JLabel.CENTER); empty.add(message); log.add(empty);
-        clear.addActionListener(e -> { model.setRowCount(0); });
+        table.getColumnModel().getColumn(0).setPreferredWidth(65);
+        table.getColumnModel().getColumn(1).setPreferredWidth(85);
+        table.getColumnModel().getColumn(2).setPreferredWidth(340);
+        table.getColumnModel().getColumn(3).setPreferredWidth(80);
+        table.getColumnModel().getColumn(4).setPreferredWidth(210);
+        clear.addActionListener(e -> {
+            model.setRowCount(0);
+            count.setText("0 bản ghi");
+        });
         addPageComponent(log);
+    }
+
+    void showSocketStatus(String status) {
+        String shortStatus = status.startsWith("Server") ? "Đang lắng nghe"
+                : status.startsWith("Đã kết nối") ? "Đã kết nối"
+                : status.startsWith("Lỗi") || status.startsWith("Mất") ? "Lỗi kết nối"
+                : status.startsWith("Đang") ? status : "Chưa kết nối";
+        statusText.setText(shortStatus);
+        sidebarStatus.setText(status);
+        sidebarStatus.setToolTipText(status);
+        showStatus("TCP · " + shortStatus, System.currentTimeMillis());
+    }
+
+    void appendEvent(SocketService.Event event) {
+        if (model.getRowCount() >= 500) model.removeRow(0);
+        SocketService.Metrics sample = event.metrics();
+        String rate = sample == null ? "--" : TrafficChart.rate(sample.recvBytesPerSec())
+                + " ↓ / " + TrafficChart.rate(sample.sentBytesPerSec()) + " ↑";
+        model.addRow(new Object[] {formatTime(System.currentTimeMillis()), event.type(), event.message(),
+            event.bytes() > 0 ? event.bytes() + " B" : "--", rate});
+        count.setText(model.getRowCount() + " bản ghi");
     }
 
     private static JTextField field(String text) {
@@ -117,5 +157,5 @@ public final class SocketTestFrame extends MonitorFrame {
         b.setBorder(BorderFactory.createLineBorder(UiTheme.EDGE)); return b;
     }
 
-    public static void main(String[] args) { SwingUtilities.invokeLater(() -> new SocketTestFrame().setVisible(true)); }
+    public static void main(String[] args) { MonitorSession.launch(3); }
 }

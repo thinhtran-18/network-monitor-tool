@@ -6,14 +6,11 @@
 
 ## Trạng thái hiện tại
 
-| Hạng mục | Trạng thái |
-| --- | --- |
-| Khung dự án Maven và package `core`, `monitor`, `network`, `ui` | Hoàn thành |
-| Liệt kê kết nối TCP/UDP bằng OSHI | Đã có bản console |
-| Lọc kết nối theo IP và port | Đã có; lọc cả IP/port cục bộ và từ xa |
-| Lấy mẫu băng thông theo thời gian thực | Đang phát triển |
-| Agent–Server truyền dữ liệu qua Socket | Đang phát triển |
-| Giao diện Swing, biểu đồ và thống kê | Đang phát triển |
+- Dashboard hiển thị mẫu băng thông thực tế theo card qua OSHI; chọn card đang hoạt động. Biểu đồ JFreeChart hiển thị 60 giây gần nhất.
+- Connections quét kết nối thực tế định kỳ, cho phép lọc TCP/UDP và tìm IP, port, PID.
+- Statistics tính trung bình, cực đại và dung lượng theo phiên kể từ khi chọn card. Có thể xem biểu đồ 1, 5 hoặc 15 phút, đếm kết nối theo IP/port đầu bên kia và xuất CSV lịch sử tối đa 15 phút.
+- Socket Test truyền các mẫu tốc độ card thực qua TCP JSON một dòng giữa client và server. Chưa đo tốc độ truyền khối dữ liệu, độ trễ, hoặc thống kê lưu lượng theo IP/port; chưa kết nối với Agent/Server demo cũ.
+- Chưa có xác thực hoặc mã hóa cho Socket Test; chỉ dùng trong mạng thử nghiệm tin cậy.
 
 ## Công nghệ
 
@@ -46,7 +43,7 @@ git pull --ff-only origin main
 1. Mở NetBeans và chọn **File → Open Project**.
 2. Chọn thư mục `network-monitor-tool` có chứa `pom.xml`.
 3. Chọn **Clean and Build** để tải dependency và biên dịch.
-4. Chọn **Run Project** để chạy `com.nhom5.netmonitor.App`.
+4. Chọn **Run Project** để mở Dashboard gốc. Nếu NetBeans hỏi lớp chạy, chọn `com.nhom5.netmonitor.App`. Có thể nhấp phải `App.java` → **Run File**.
 
 NetBeans dùng classpath Maven để nạp OSHI và các thư viện đi kèm.
 
@@ -59,32 +56,17 @@ mvn clean package
 java -jar target/netmonitor-0.1.0-SNAPSHOT.jar
 ```
 
-Lệnh trên liệt kê mọi kết nối tại thời điểm quét. Có thể lọc theo IP, port hoặc cả hai:
+Lệnh `java -jar` mở giao diện giám sát. Chọn card mạng đang hoạt động ở Dashboard; mỗi mẫu cập nhật sau khoảng một giây. Chỉ số MB/s dùng 1 MB = 1.000.000 byte. Tổng phiên bắt đầu từ các mẫu quan sát được sau khi chọn card.
 
-```powershell
-java -jar target/netmonitor-0.1.0-SNAPSHOT.jar 127.0.0.1
-java -jar target/netmonitor-0.1.0-SNAPSHOT.jar 127.0.0.1 8080
-```
+### Thử Socket
 
-Khi truyền IP và port cùng lúc, một dòng cần khớp **cả hai** điều kiện; mỗi điều kiện có thể khớp đầu cục bộ hoặc đầu từ xa.
-
-### Đầu ra console
-
-```text
-ConnectionMonitor | ket noi: <số dòng> | bo loc IP=*, port=*
-PROTO  LOCAL IP                                PORT    REMOTE IP                               PORT    STATE         PID
-TCP4   <IP cục bộ>                             <port>  <IP từ xa hoặc *>                       <port>  ESTABLISHED   <PID>
-TCP4   <IP cục bộ>                             <port>  *                                       0       LISTEN        <PID>
-UDP4   <IP cục bộ>                             <port>  *                                       0       N/A           <PID>
-```
-
-Danh sách và số dòng phụ thuộc vào máy, thời điểm chạy và bộ lọc. `N/A` là trạng thái hiển thị cho UDP; PID có thể là `-1` nếu hệ điều hành không cung cấp.
+Mở ứng dụng trên hai máy cùng mạng (hoặc hai cửa sổ trên cùng máy). Ở máy nhận chọn **Socket Test → Server**, nhập port rồi khởi động. Ở máy gửi chọn **Client**, nhập IP máy nhận và cùng port rồi kết nối. Chọn card mạng ở Dashboard của máy gửi; nhật ký server hiển thị mẫu tốc độ. Khi thử trên cùng máy dùng IP `127.0.0.1`. Cấu hình firewall nếu cần.
 
 ## Cấu trúc dự án
 
 ```text
 src/main/java/com/nhom5/netmonitor/
-├── App.java                         # Điểm chạy console hiện tại
+├── App.java                         # Điểm chạy giao diện giám sát
 ├── core/                            # Dữ liệu dùng chung và bộ lọc
 ├── monitor/connection/              # Theo dõi kết nối TCP/UDP
 ├── monitor/bandwidth/               # Module băng thông
