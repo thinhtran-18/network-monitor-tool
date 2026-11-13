@@ -7,39 +7,63 @@ import java.awt.Graphics2D;
 import java.awt.RenderingHints;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
-import java.time.LocalTime;
+import java.time.Instant;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import javax.swing.JButton;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
-import javax.swing.SwingUtilities;
-import javax.swing.Timer;
 
 /** Shared frame chrome used by the Connections, Statistics, and Socket Test pages. */
 abstract class MonitorFrame extends JFrame {
     private final JPanel root = new JPanel(null);
-    private final int width;
-    private final int height;
+    protected final MonitorSession session;
+    private final Header header;
 
-    MonitorFrame(String pageTitle, int activePage, int width, int height) {
+    MonitorFrame(MonitorSession session, String pageTitle, int activePage, int width, int height) {
         super("NetMonitor - " + pageTitle);
-        this.width = width;
-        this.height = height;
+        this.session = session;
         setUndecorated(true);
-        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
         setSize(width, height);
         setResizable(false);
         setLocationRelativeTo(null);
         root.setBackground(UiTheme.BG);
         root.add(new Sidebar(activePage, height));
-        root.add(new Header(pageTitle, width));
-        setContentPane(root);
+        header = new Header(pageTitle, width);
+        root.add(header);
+        root.setPreferredSize(new java.awt.Dimension(width, height));
+        java.awt.Rectangle screen = java.awt.GraphicsEnvironment.getLocalGraphicsEnvironment().getMaximumWindowBounds();
+        if (width > screen.width || height > screen.height) {
+            javax.swing.JScrollPane scroll = new javax.swing.JScrollPane(root);
+            scroll.setBorder(null);
+            scroll.getVerticalScrollBar().setUnitIncrement(25);
+            scroll.getHorizontalScrollBar().setUnitIncrement(25);
+            setContentPane(scroll);
+            setSize(Math.min(width + 18, screen.width), Math.min(height + 18, screen.height));
+        } else {
+            setContentPane(root);
+        }
+        setLocationRelativeTo(null);
+        addWindowListener(new java.awt.event.WindowAdapter() {
+            @Override public void windowClosing(java.awt.event.WindowEvent event) { session.close(); }
+        });
     }
 
     protected final void addPageComponent(java.awt.Component component) { root.add(component); }
 
-    private static final class Sidebar extends JPanel {
+    final void showStatus(String status, long timestamp) {
+        header.status.setText(status);
+        header.clock.setText(timestamp == 0 ? "Cập nhật: --" : "Cập nhật: " + formatTime(timestamp));
+    }
+
+    static String formatTime(long timestamp) {
+        return DateTimeFormatter.ofPattern("HH:mm:ss").withZone(ZoneId.systemDefault())
+                .format(Instant.ofEpochMilli(timestamp));
+    }
+
+    private final class Sidebar extends JPanel {
         Sidebar(int activePage, int height) {
             setLayout(null);
             setBounds(0, 0, 240, height);
@@ -65,23 +89,12 @@ abstract class MonitorFrame extends JFrame {
                 row.add(text);
                 row.setCursor(java.awt.Cursor.getPredefinedCursor(java.awt.Cursor.HAND_CURSOR));
                 MouseAdapter navigation = new MouseAdapter() {
-                    @Override public void mouseClicked(MouseEvent e) { navigate(index); }
+                    @Override public void mouseClicked(MouseEvent e) { session.show(index); }
                 };
                 row.addMouseListener(navigation); text.addMouseListener(navigation); icon.addMouseListener(navigation);
                 add(row);
             }
             add(UiTheme.label("v1.0.0", 20, height - 46, 150, 24, 12, UiTheme.MUTED, false));
-        }
-
-        private void navigate(int index) {
-            JFrame next = switch (index) {
-                case 0 -> new DashboardFrame();
-                case 1 -> new ConnectionsFrame();
-                case 2 -> new StatisticsFrame();
-                default -> new SocketTestFrame();
-            };
-            next.setVisible(true);
-            SwingUtilities.getWindowAncestor(this).dispose();
         }
 
         @Override protected void paintComponent(Graphics graphics) {
@@ -96,26 +109,27 @@ abstract class MonitorFrame extends JFrame {
         }
     }
 
-    private static final class Header extends JPanel {
-        private final Timer timer;
+    private final class Header extends JPanel {
+        private final JLabel status;
+        private final JLabel clock;
         Header(String title, int frameWidth) {
             int headerWidth = frameWidth - 240;
             setLayout(null); setBounds(240, 0, headerWidth, 64); setBackground(UiTheme.SIDEBAR);
             setBorder(javax.swing.BorderFactory.createMatteBorder(0, 0, 1, 0, UiTheme.EDGE));
             add(UiTheme.label(title, 24, 5, 430, 30, 22, UiTheme.WHITE, true));
             add(UiTheme.label("Network Monitor Tool", 24, 34, 300, 20, 13, UiTheme.MUTED, false));
-            JPanel badge = new JPanel(null); badge.setBounds(headerWidth - 340, 17, 128, 30); badge.setBackground(new Color(18, 54, 52));
-            badge.add(UiTheme.label("●  Dữ liệu mẫu", 11, 0, 112, 30, 12, UiTheme.GREEN, true)); add(badge);
-            JLabel clock = UiTheme.label("Cập nhật: " + time(), headerWidth - 188, 0, 140, 64, 12, UiTheme.MUTED, false);
+            JPanel badge = new JPanel(null);
+            badge.setBounds(headerWidth - 410, 17, 204, 30);
+            badge.setBackground(new Color(18, 54, 52));
+            status = UiTheme.label("Đang khởi tạo", 11, 0, 182, 30, 12, UiTheme.GREEN, true);
+            badge.add(status);
+            add(badge);
+            clock = UiTheme.label("Cập nhật: --", headerWidth - 188, 0, 140, 64, 12, UiTheme.MUTED, false);
             add(clock);
-            timer = new Timer(1000, e -> clock.setText("Cập nhật: " + time()));
             JButton close = new JButton("×"); close.setBounds(headerWidth - 40, 13, 28, 28);
             close.setForeground(UiTheme.MUTED); close.setFont(new Font("Segoe UI", Font.PLAIN, 20));
             close.setBorderPainted(false); close.setContentAreaFilled(false); close.setFocusPainted(false);
-            close.addActionListener(e -> System.exit(0)); add(close);
+            close.addActionListener(e -> session.close()); add(close);
         }
-        @Override public void addNotify() { super.addNotify(); timer.start(); }
-        @Override public void removeNotify() { timer.stop(); super.removeNotify(); }
-        private static String time() { return LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm:ss")); }
     }
 }

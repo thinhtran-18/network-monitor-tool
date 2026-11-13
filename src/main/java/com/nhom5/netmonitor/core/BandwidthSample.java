@@ -13,6 +13,7 @@ import java.util.OptionalDouble;
  * @param recvBytesPerSec   tốc độ nhận (byte/giây)
  * @param sentBytesPerSec   tốc độ gửi (byte/giây)
  * @param linkSpeedBitsPerSec tốc độ danh định của liên kết (bit/giây); 0 nếu không rõ
+ * @param adapterStats      địa chỉ và bộ đếm gói tin của card nếu có
  * @param usagePercent      % băng thông sử dụng (nhận+gửi, theo danh định); rỗng nếu không tính được
  */
 public record BandwidthSample(
@@ -24,6 +25,16 @@ public record BandwidthSample(
         double recvBytesPerSec,
         double sentBytesPerSec,
         long linkSpeedBitsPerSec,
-        OptionalDouble usagePercent) {
+        OptionalDouble usagePercent,
+        AdapterStats adapterStats) {
+    public record AdapterStats(String ipv4, String mac, long packetsSent, long packetsReceived,
+                               long sendErrors, long receiveErrors) { }
+
+    public BandwidthSample(String interfaceId, String displayName, long timestampMillis,
+                           long totalBytesRecv, long totalBytesSent, double recvBytesPerSec,
+                           double sentBytesPerSec, long linkSpeedBitsPerSec, OptionalDouble usagePercent) {
+        this(interfaceId, displayName, timestampMillis, totalBytesRecv, totalBytesSent, recvBytesPerSec,
+                sentBytesPerSec, linkSpeedBitsPerSec, usagePercent, null);
+    }
 }
 

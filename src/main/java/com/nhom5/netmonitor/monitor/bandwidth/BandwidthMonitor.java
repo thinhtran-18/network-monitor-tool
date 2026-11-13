@@ -158,7 +158,9 @@ public final class BandwidthMonitor {
             long speed = nif.getSpeed();
             BandwidthSample sample = new BandwidthSample(id, nif.getDisplayName(), System.currentTimeMillis(),
                     recv, sent, recvRate, sentRate, speed,
-                    BandwidthCalculator.usagePercent(recvRate, sentRate, speed));
+                    BandwidthCalculator.usagePercent(recvRate, sentRate, speed),
+                    new BandwidthSample.AdapterStats(String.join(", ", nif.getIPv4addr()), nif.getMacaddr(),
+                            nif.getPacketsSent(), nif.getPacketsRecv(), nif.getOutErrors(), nif.getInErrors()));
             for (BandwidthListener l : listeners) {
                 l.onBandwidthSample(sample);
             }

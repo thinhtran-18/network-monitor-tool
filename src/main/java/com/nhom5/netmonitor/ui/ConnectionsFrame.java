@@ -17,7 +17,7 @@ import javax.swing.SwingUtilities;
 import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.TableRowSorter;
 
-/** Connections page demo with a searchable, sample-data JTable. */
+/** Connections page with a searchable JTable backed by OS snapshots. */
 public final class ConnectionsFrame extends MonitorFrame {
     private final JTable table;
     private final ConnectionTableModel tableModel;
@@ -25,12 +25,12 @@ public final class ConnectionsFrame extends MonitorFrame {
     private final JTextField search = new JTextField();
     private String protocolFilter = "All";
     private String stateFilter = "Tất cả trạng thái";
-    private int totalConnectionCount = sampleRows().size();
+    private int totalConnectionCount;
     private final JLabel countLabel = UiTheme.label("", 0, 0, 170, 34, 12, UiTheme.MUTED, false);
 
-    public ConnectionsFrame() {
-        super("Connections", 1, 1440, 900);
-        tableModel = new ConnectionTableModel(sampleRows());
+    ConnectionsFrame(MonitorSession session) {
+        super(session, "Connections", 1, 1440, 900);
+        tableModel = new ConnectionTableModel();
         table = new JTable(tableModel);
         sorter = new TableRowSorter<>(tableModel);
         table.setRowSorter(sorter);
@@ -39,13 +39,11 @@ public final class ConnectionsFrame extends MonitorFrame {
 
         SurfacePanel tableCard = new SurfacePanel(264, 176, 1152, 700);
         JScrollPane scroll = new JScrollPane(table);
-        scroll.setBounds(1, 1, 1150, 644);
+        scroll.setBounds(1, 1, 1150, 698);
         scroll.setBorder(BorderFactory.createEmptyBorder());
         scroll.getViewport().setBackground(UiTheme.CARD);
         scroll.setBackground(UiTheme.CARD);
         tableCard.add(scroll);
-        tableCard.add(UiTheme.label("Trang 1 / 17", 18, 651, 130, 34, 12, UiTheme.MUTED, false));
-        addPager(tableCard);
         addPageComponent(tableCard);
         applyFilters();
     }
@@ -117,7 +115,7 @@ public final class ConnectionsFrame extends MonitorFrame {
             @Override public boolean include(Entry<? extends ConnectionTableModel, ? extends Integer> entry) {
                 String protocol = entry.getStringValue(0);
                 String state = entry.getStringValue(5);
-                boolean matchesProtocol = protocolFilter.equals("All") || protocolFilter.equals(protocol);
+                boolean matchesProtocol = protocolFilter.equals("All") || protocol.startsWith(protocolFilter);
                 boolean matchesState = stateFilter.equals("Tất cả trạng thái") || stateFilter.equals(state);
                 boolean matchesText = text.isEmpty();
                 for (int i = 1; !matchesText && i < 7; i++) matchesText = entry.getStringValue(i).toLowerCase().contains(text.toLowerCase());
@@ -149,7 +147,7 @@ public final class ConnectionsFrame extends MonitorFrame {
                 cell.setForeground(UiTheme.WHITE);
                 if (column == 2 || column == 4 || column == 6) cell.setHorizontalAlignment(JLabel.RIGHT);
                 else cell.setHorizontalAlignment(JLabel.LEFT);
-                if (column == 0) { cell.setFont(new Font("Segoe UI", Font.BOLD, 12)); cell.setForeground("UDP".equals(value) ? UiTheme.TEAL : UiTheme.UPLOAD); }
+                if (column == 0) { cell.setFont(new Font("Segoe UI", Font.BOLD, 12)); cell.setForeground(String.valueOf(value).startsWith("UDP") ? UiTheme.TEAL : UiTheme.UPLOAD); }
                 if (column == 5) {
                     cell.setFont(new Font("Consolas", Font.BOLD, 11));
                     cell.setForeground(String.valueOf(value).equals("ESTABLISHED") ? UiTheme.GREEN : UiTheme.AMBER);
@@ -160,19 +158,6 @@ public final class ConnectionsFrame extends MonitorFrame {
         for (int i = 0; i < table.getColumnCount(); i++) table.getColumnModel().getColumn(i).setCellRenderer(renderer);
         int[] widths = {105, 220, 130, 220, 130, 210, 100};
         for (int i = 0; i < widths.length; i++) table.getColumnModel().getColumn(i).setPreferredWidth(widths[i]);
-        table.setRowSelectionInterval(4, 4);
-    }
-
-    private static void addPager(SurfacePanel card) {
-        String[] labels = {"‹", "1", "2", "3", "…", "17", "›"};
-        int x = 790;
-        for (String label : labels) {
-            JButton b = button(label, x, 652, label.equals("‹") || label.equals("›") ? 36 : 38, 34, label.equals("1"));
-            card.add(b); x += 42;
-        }
-        JComboBox<String> pageSize = new JComboBox<>(new String[]{"15 dòng / trang", "30 dòng / trang", "50 dòng / trang"});
-        pageSize.setBounds(1000, 652, 132, 34); pageSize.setBackground(UiTheme.INPUT); pageSize.setForeground(UiTheme.WHITE);
-        pageSize.setFont(new Font("Segoe UI", Font.PLAIN, 12)); card.add(pageSize);
     }
 
     private static JButton button(String text, int x, int y, int w, int h, boolean selected) {
@@ -188,25 +173,5 @@ public final class ConnectionsFrame extends MonitorFrame {
                 BorderFactory.createLineBorder(UiTheme.EDGE), BorderFactory.createEmptyBorder(0, 12, 0, 8)));
     }
 
-    private static List<ConnectionInfo> sampleRows() {
-        return List.of(
-            new ConnectionInfo("TCP","192.168.1.25",52144,"142.250.199.78",443,"ESTABLISHED",8124),
-            new ConnectionInfo("TCP","192.168.1.25",52160,"20.190.151.9",443,"ESTABLISHED",8124),
-            new ConnectionInfo("TCP","0.0.0.0",135,"0.0.0.0",0,"LISTEN",1032),
-            new ConnectionInfo("TCP","0.0.0.0",445,"0.0.0.0",0,"LISTEN",4),
-            new ConnectionInfo("TCP","127.0.0.1",49711,"127.0.0.1",3306,"ESTABLISHED",5620),
-            new ConnectionInfo("TCP","192.168.1.25",52201,"151.101.1.69",443,"TIME_WAIT",0),
-            new ConnectionInfo("TCP","192.168.1.25",52233,"13.107.42.14",443,"CLOSE_WAIT",9340),
-            new ConnectionInfo("TCP","192.168.1.25",52290,"172.217.24.14",80,"SYN_SENT",8124),
-            new ConnectionInfo("UDP","0.0.0.0",5353,"*",0,"—",2216),
-            new ConnectionInfo("UDP","192.168.1.25",137,"*",0,"—",4),
-            new ConnectionInfo("UDP","127.0.0.1",1900,"*",0,"—",7788),
-            new ConnectionInfo("TCP","192.168.1.25",52318,"104.18.32.7",443,"ESTABLISHED",11208),
-            new ConnectionInfo("TCP","0.0.0.0",3389,"0.0.0.0",0,"LISTEN",1180),
-            new ConnectionInfo("UDP","192.168.1.25",138,"*",0,"—",4),
-            new ConnectionInfo("TCP","192.168.1.25",52344,"52.96.165.2",443,"TIME_WAIT",0)
-        );
-    }
-
-    public static void main(String[] args) { SwingUtilities.invokeLater(() -> new ConnectionsFrame().setVisible(true)); }
+    public static void main(String[] args) { MonitorSession.launch(1); }
 }
