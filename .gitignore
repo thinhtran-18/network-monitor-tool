@@ -7,3 +7,13 @@
 *.csv
 .DS_Store
 Thumbs.db
+
+# Word documents and lockfiles
+*.docx
+*.doc
+~$*
+
+# Personal reports
+docs/*HUY*
+docs/TIEN_DO_*
+docs/BANG_DOI_CHIEU_*
