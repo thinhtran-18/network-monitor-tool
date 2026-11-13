@@ -126,7 +126,7 @@ abstract class MonitorFrame extends JFrame {
             add(badge);
             clock = UiTheme.label("Cập nhật: --", headerWidth - 188, 0, 140, 64, 12, UiTheme.MUTED, false);
             add(clock);
-            JButton close = new JButton("×"); close.setBounds(headerWidth - 40, 13, 28, 28);
+            JButton close = new JButton("X"); close.setBounds(headerWidth - 40, 13, 28, 28);
             close.setForeground(UiTheme.MUTED); close.setFont(new Font("Segoe UI", Font.PLAIN, 20));
             close.setBorderPainted(false); close.setContentAreaFilled(false); close.setFocusPainted(false);
             close.addActionListener(e -> session.close()); add(close);
